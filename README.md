@@ -290,3 +290,37 @@ confidence 48/100). Those different values illustrate evidence strength versus
 prioritization, not probabilities of wrongdoing. Future validation would require
 more varied ordinary/change-chain activity and independent evaluation cases;
 no such performance claim is made here.
+
+## Synthetic evaluation (Phase 7)
+
+Produce predictions first, then run the separate evaluator:
+
+```sh
+python -m tracelayer.pipeline
+python scripts/evaluate_demo.py
+```
+
+The evaluator validates the completed ranked CSV before opening ground truth.
+It saves `data/evaluation.json` with input-file SHA-256 fingerprints. Primary
+entities are defined as six continuation-chain wallets, the burst source, and
+the seed-path target (eight total); supplied seeds and incidental recipients are
+not primary targets. A broader all-participant check is reported alongside it.
+Cutoffs are `ceil(number_of_ranked_entities * percentage)`. Missing targets stay
+in the denominator and are listed; mean rank includes found targets only.
+
+**Synthetic Demo Results:** 645 ranked wallets; top-5% cutoff 33 and top-10%
+cutoff 65. Primary Recall@5% and Recall@10% are 8/8 (100%); mean rank is 6.125.
+Peeling continuation wallet ranks in chain order: 5, 1, 2, 3, 4, 6. Burst source
+rank: 7. Seed-path target rank: 21. No primary targets are missing.
+The broader 45-participant check returns 10/45 (22.22%) at both cutoffs.
+Incidental one-transaction recipients have little unusual behavior, explaining
+why participant-wide recall is much lower. More diverse baselines and independent
+cases would be legitimate improvements; copying scenario names into detection
+would not be. Neither the model nor weights were changed for these results.
+
+The evaluation measures ranking performance on seeded synthetic scenarios. It is
+not evidence of real-world investigative accuracy. This is combined risk-ranking
+evaluation, not standalone ML accuracy; the known seed and planted graph/pattern
+structure contribute to prioritization. The evaluator cannot independently prove
+that an arbitrary supplied prediction CSV matches a ground-truth file; regenerate
+the case, pipeline output, and evaluation in order when parameters change.

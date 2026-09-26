@@ -1,0 +1,111 @@
+{
+  "label": "Synthetic Demo Evaluation",
+  "total_ranked_entities": 645,
+  "target_definition": "Peeling continuation wallets, burst source, and seed-path target; excludes incidental recipients and the supplied seed.",
+  "primary_targets": {
+    "target_count": 8,
+    "individual_ranks": {
+      "wallet_burst_demo": 7,
+      "wallet_peel_01": 5,
+      "wallet_peel_02": 1,
+      "wallet_peel_03": 2,
+      "wallet_peel_04": 3,
+      "wallet_peel_05": 4,
+      "wallet_peel_06": 6,
+      "wallet_target": 21
+    },
+    "missing_targets": [],
+    "mean_rank_found_targets": 6.125,
+    "top_5_percent": {
+      "cutoff": 33,
+      "found": 8,
+      "recall": 1.0
+    },
+    "top_10_percent": {
+      "cutoff": 65,
+      "found": 8,
+      "recall": 1.0
+    }
+  },
+  "scenario_ranks": {
+    "peeling_chain": {
+      "wallet_peel_01": 5,
+      "wallet_peel_02": 1,
+      "wallet_peel_03": 2,
+      "wallet_peel_04": 3,
+      "wallet_peel_05": 4,
+      "wallet_peel_06": 6
+    },
+    "anomalous_burst": {
+      "wallet_burst_demo": 7
+    },
+    "seed_risk_target": {
+      "wallet_target": 21
+    }
+  },
+  "all_scenario_participants": {
+    "target_count": 45,
+    "individual_ranks": {
+      "seed_wallet_demo": 8,
+      "wallet_burst_demo": 7,
+      "wallet_burst_recipient_demo_01": 297,
+      "wallet_burst_recipient_demo_02": 262,
+      "wallet_burst_recipient_demo_03": 299,
+      "wallet_burst_recipient_demo_04": 251,
+      "wallet_burst_recipient_demo_05": 295,
+      "wallet_burst_recipient_demo_06": 289,
+      "wallet_burst_recipient_demo_07": 238,
+      "wallet_burst_recipient_demo_08": 196,
+      "wallet_burst_recipient_demo_09": 255,
+      "wallet_burst_recipient_demo_10": 248,
+      "wallet_burst_recipient_demo_11": 204,
+      "wallet_burst_recipient_demo_12": 300,
+      "wallet_burst_recipient_demo_13": 291,
+      "wallet_burst_recipient_demo_14": 272,
+      "wallet_burst_recipient_demo_15": 273,
+      "wallet_burst_recipient_demo_16": 302,
+      "wallet_burst_recipient_demo_17": 281,
+      "wallet_burst_recipient_demo_18": 286,
+      "wallet_burst_recipient_demo_19": 268,
+      "wallet_burst_recipient_demo_20": 239,
+      "wallet_burst_recipient_demo_21": 288,
+      "wallet_burst_recipient_demo_22": 233,
+      "wallet_burst_recipient_demo_23": 209,
+      "wallet_burst_recipient_demo_24": 252,
+      "wallet_burst_recipient_demo_25": 241,
+      "wallet_burst_recipient_demo_26": 269,
+      "wallet_burst_recipient_demo_27": 282,
+      "wallet_burst_recipient_demo_28": 270,
+      "wallet_burst_recipient_demo_29": 296,
+      "wallet_burst_recipient_demo_30": 243,
+      "wallet_intermediate": 9,
+      "wallet_peel_01": 5,
+      "wallet_peel_02": 1,
+      "wallet_peel_03": 2,
+      "wallet_peel_04": 3,
+      "wallet_peel_05": 4,
+      "wallet_peel_06": 6,
+      "wallet_peel_recipient_demo_01": 187,
+      "wallet_peel_recipient_demo_02": 184,
+      "wallet_peel_recipient_demo_03": 191,
+      "wallet_peel_recipient_demo_04": 181,
+      "wallet_peel_recipient_demo_05": 192,
+      "wallet_target": 21
+    },
+    "missing_targets": [],
+    "mean_rank_found_targets": 198.44444444444446,
+    "top_5_percent": {
+      "cutoff": 33,
+      "found": 10,
+      "recall": 0.2222222222222222
+    },
+    "top_10_percent": {
+      "cutoff": 65,
+      "found": 10,
+      "recall": 0.2222222222222222
+    }
+  },
+  "prediction_sha256": "9165e205dc393bc3ae8c62d0d14ed94786f830feb4f41b2190dfda1f481ba0a2",
+  "ground_truth_sha256": "aefce09e5af40493b938a9acf29a1d9c5a3be956bcc9605adb751e734298f771",
+  "limitation": "The evaluation measures ranking performance on seeded synthetic scenarios. It is not evidence of real-world investigative accuracy."
+}
