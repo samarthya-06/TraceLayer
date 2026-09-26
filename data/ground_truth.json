@@ -1,1 +1,127 @@
-{}
+{
+  "seed": 42,
+  "rows": 1000,
+  "evaluation_only": true,
+  "scenarios": {
+    "peeling_chain": {
+      "wallets": [
+        "wallet_peel_01",
+        "wallet_peel_02",
+        "wallet_peel_03",
+        "wallet_peel_04",
+        "wallet_peel_05",
+        "wallet_peel_06",
+        "wallet_peel_recipient_demo_01",
+        "wallet_peel_recipient_demo_02",
+        "wallet_peel_recipient_demo_03",
+        "wallet_peel_recipient_demo_04",
+        "wallet_peel_recipient_demo_05"
+      ],
+      "chain_wallets": [
+        "wallet_peel_01",
+        "wallet_peel_02",
+        "wallet_peel_03",
+        "wallet_peel_04",
+        "wallet_peel_05",
+        "wallet_peel_06"
+      ],
+      "txids": [
+        "tx_demo_000964",
+        "tx_demo_000965",
+        "tx_demo_000966",
+        "tx_demo_000967",
+        "tx_demo_000968"
+      ],
+      "transferred_btc": [
+        "8.50000000",
+        "8.10000000",
+        "7.70000000",
+        "7.30000000",
+        "6.90000000"
+      ]
+    },
+    "anomalous_burst": {
+      "wallets": [
+        "wallet_burst_demo",
+        "wallet_burst_recipient_demo_01",
+        "wallet_burst_recipient_demo_02",
+        "wallet_burst_recipient_demo_03",
+        "wallet_burst_recipient_demo_04",
+        "wallet_burst_recipient_demo_05",
+        "wallet_burst_recipient_demo_06",
+        "wallet_burst_recipient_demo_07",
+        "wallet_burst_recipient_demo_08",
+        "wallet_burst_recipient_demo_09",
+        "wallet_burst_recipient_demo_10",
+        "wallet_burst_recipient_demo_11",
+        "wallet_burst_recipient_demo_12",
+        "wallet_burst_recipient_demo_13",
+        "wallet_burst_recipient_demo_14",
+        "wallet_burst_recipient_demo_15",
+        "wallet_burst_recipient_demo_16",
+        "wallet_burst_recipient_demo_17",
+        "wallet_burst_recipient_demo_18",
+        "wallet_burst_recipient_demo_19",
+        "wallet_burst_recipient_demo_20",
+        "wallet_burst_recipient_demo_21",
+        "wallet_burst_recipient_demo_22",
+        "wallet_burst_recipient_demo_23",
+        "wallet_burst_recipient_demo_24",
+        "wallet_burst_recipient_demo_25",
+        "wallet_burst_recipient_demo_26",
+        "wallet_burst_recipient_demo_27",
+        "wallet_burst_recipient_demo_28",
+        "wallet_burst_recipient_demo_29",
+        "wallet_burst_recipient_demo_30"
+      ],
+      "source_wallet": "wallet_burst_demo",
+      "txids": [
+        "tx_demo_000969",
+        "tx_demo_000970",
+        "tx_demo_000971",
+        "tx_demo_000972",
+        "tx_demo_000973",
+        "tx_demo_000974",
+        "tx_demo_000975",
+        "tx_demo_000976",
+        "tx_demo_000977",
+        "tx_demo_000978",
+        "tx_demo_000979",
+        "tx_demo_000980",
+        "tx_demo_000981",
+        "tx_demo_000982",
+        "tx_demo_000983",
+        "tx_demo_000984",
+        "tx_demo_000985",
+        "tx_demo_000986",
+        "tx_demo_000987",
+        "tx_demo_000988",
+        "tx_demo_000989",
+        "tx_demo_000990",
+        "tx_demo_000991",
+        "tx_demo_000992",
+        "tx_demo_000993",
+        "tx_demo_000994",
+        "tx_demo_000995",
+        "tx_demo_000996",
+        "tx_demo_000997",
+        "tx_demo_000998"
+      ],
+      "window_seconds": 58,
+      "transaction_count": 30
+    },
+    "seed_risk_path": {
+      "wallets": [
+        "seed_wallet_demo",
+        "wallet_intermediate",
+        "wallet_target"
+      ],
+      "txids": [
+        "tx_demo_000999",
+        "tx_demo_001000"
+      ],
+      "seed_wallet": "seed_wallet_demo",
+      "target_wallet": "wallet_target"
+    }
+  }
+}

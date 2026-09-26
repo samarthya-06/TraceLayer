@@ -10,14 +10,43 @@ CSV ingestion → validation → cross-layer graph → feature engineering → I
 Forest anomaly detection → Bitcoin-pattern detection → risk and confidence scoring
 → ranked investigative leads → Streamlit visualization.
 
-## Phase 0 scope
+## Phase 1 scope
 
-Only the project scaffold and a Streamlit title are implemented. Python modules,
-the data generator, and the test file are placeholders. `data/demo_case.csv` is
-empty and `data/ground_truth.json` contains an empty object; neither contains demo
-observations or evaluation results yet. No analysis logic or performance claims
-are included. Network observations will be investigative clues, not proof of
-wallet ownership or transaction origin.
+The deterministic synthetic data generator is implemented. The Streamlit app
+still displays only its title; ingestion, graphs, detection, scoring, and ML
+remain unimplemented placeholders.
+
+Generate the dataset and run the standard-library tests:
+
+```sh
+python scripts/generate_demo_data.py
+python -m unittest discover -s tests -v
+```
+
+Optional arguments: `--rows 1000 --seed 42` (the defaults). At least 100 rows are
+required so ordinary activity remains the majority. Outputs always go to this
+project's `data/` directory, regardless of the current working directory.
+
+The default dataset contains 963 ordinary transactions, five peeling-chain
+transactions (six chain wallets, with decreasing continuation amounts), 30 burst
+transactions in 58 seconds, and a two-transaction seed-risk path. Timestamps
+start at a fixed UTC date and cover seven days. One row represents one synthetic
+transaction and its illustrative network observation, not a real P2P capture.
+
+Address and amount columns contain JSON lists. Amount list entries and fees are
+exact eight-decimal BTC strings, calculated in integer satoshis; each transaction
+balances inputs = outputs + fee. Inputs and outputs have varied counts. This is
+not a complete UTXO ledger: ordinary and burst inputs have assumed funding, and
+no cryptographic validity, real traffic distribution, or ownership is claimed.
+
+Wallet names and TXIDs are intentionally invalid demo identifiers. IPs are drawn
+only from reserved documentation ranges `192.0.2.0/24` and `198.51.100.0/24`.
+`data/ground_truth.json` identifies scenario wallets and TXIDs for evaluation
+only. Future prediction code must not read it. Generator validation and tests
+may use it to check that the intended scenarios were actually written.
+Scenario names are transparent fixtures, not features for future detection.
+Network observations are investigative clues, not proof of wallet ownership or
+transaction origin. No performance metrics or detection claims are made.
 
 This is a small local prototype, not a production system. It uses no cloud APIs,
 authentication, external databases, frontend frameworks, orchestration, or workers.
@@ -56,4 +85,4 @@ python -m compileall -q app.py tracelayer scripts tests
 python -c "import pandas, numpy, sklearn, networkx, streamlit; import tracelayer.ingestion, tracelayer.graph_builder, tracelayer.features, tracelayer.anomaly, tracelayer.patterns, tracelayer.scoring, tracelayer.pipeline"
 ```
 
-Pipeline tests will be added with the implementation in a later phase.
+Generator tests are in `tests/test_generate_demo_data.py`. Pipeline tests remain a placeholder.
