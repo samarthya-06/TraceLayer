@@ -60,7 +60,7 @@ def neighborhood_figure(graph, selected):
 
 
 st.title('TraceLayer')
-st.caption('Offline Bitcoin Investigation Prototype')
+st.markdown("**TraceLayer's analysis pipeline is offline-capable and has no external API dependency. The hosted Streamlit instance is provided only for public demonstration.**")
 header_left, header_right = st.columns([3, 1])
 header_left.subheader('Operation Meridian')
 header_right.markdown('**:orange[SYNTHETIC DATASET]**')
@@ -87,8 +87,8 @@ with overview:
     st.divider()
     left, right = st.columns(2)
     with left:
-        st.markdown('**Environment:** Offline / Local')
-        st.markdown('**Cloud Dependency:** None')
+        st.markdown('**Analysis Pipeline:** Offline-capable')
+        st.markdown('**External API Dependency:** None')
         st.info('Synthetic observations for demonstrating investigative review. No live Bitcoin traffic or external APIs.')
     with right:
         st.markdown('**Validation summary**')
