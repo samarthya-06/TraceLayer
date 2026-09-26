@@ -10,11 +10,12 @@ CSV ingestion → validation → cross-layer graph → feature engineering → I
 Forest anomaly detection → Bitcoin-pattern detection → risk and confidence scoring
 → ranked investigative leads → Streamlit visualization.
 
-## Phase 3 scope
+## Phase 4 scope
 
 The deterministic synthetic data generator is implemented. The Streamlit app
 still displays only its title. Dataset ingestion and the cross-layer evidence
-graph are implemented; detection, scoring, and ML remain unimplemented placeholders.
+graph, wallet features, and Isolation Forest are implemented. Explainable pattern
+signals, combined scoring, and the interface remain for later phases.
 
 Generate the dataset and run the standard-library tests:
 
@@ -147,3 +148,47 @@ python -m unittest discover -s tests -v
 ```
 
 No graph visualization or anomaly detection is implemented in this phase.
+
+## Wallet features and anomaly detection (Phase 4)
+
+`build_wallet_features(df, graph)` derives one row per wallet. Transaction count
+counts distinct TXIDs. Sent/received totals sum that wallet's input/output BTC.
+Mean/max transaction amount use the wallet's gross sent + received amount per
+transaction (not the whole transaction total or an asserted transfer to one peer).
+Counterparties are distinct opposite-side wallets, excluding self; co-occurrence
+is not proof of a direct payment. Incoming/outgoing degree count distinct adjacent
+transaction nodes, not parallel edges.
+
+Frequency is `(transaction_count - 1) / max(active_span_seconds, 60) * 3600`.
+The one-minute floor prevents simultaneous events from causing division by zero.
+A singleton has frequency zero and undefined mean inter-transaction gap (`NaN`).
+Mean gaps use seconds. Seed distance uses directed blockchain edges and is `NaN`
+when unreachable; it is **excluded from the model**, since seed support belongs
+to the separate explainable scoring stage.
+
+`fit_anomaly_model(feature_df, contamination=0.05, random_state=42)` fits 200
+Isolation Forest trees using only the explicit ten numerical activity features.
+IDs, scenario names, and seed metadata are not model inputs. No amount threshold
+or scenario-specific rule determines anomaly scores. Non-numeric/nonfinite input
+becomes missing, median-imputed per feature (all-missing columns become zero).
+Empty, singleton, and entirely identical cases return zero scores and no outliers.
+
+Scikit-learn's `score_samples` is lower for anomalies. We negate it to obtain
+`raw_anomaly_score`, then calculate `(raw - min(raw)) / (max(raw) - min(raw))`
+within the case. Thus `anomaly_score` ranges from 0 to 1 with higher values more
+unusual; a constant range becomes zero. Scores are relative to this case, not
+probabilities, and cannot be directly compared across independently fitted cases.
+`is_anomaly` uses the model's contamination-based prediction threshold, not a
+threshold on the normalized score. The default 0.05 is a demonstration parameter,
+not a calibrated real-world anomalous-traffic rate. Fitting and scoring the same
+synthetic case demonstrates prioritization, not validated generalization.
+
+```sh
+python -m scripts.inspect_anomalies
+```
+
+This inspection script prints the top ten predictions **before** opening ground
+truth for an evaluation-only rank comparison. The feature/model modules never
+read that file. Tests verify unchanged scores after replacing every wallet ID
+and seed distance. The generator and model are not tuned to force a planted
+wallet into first place.
