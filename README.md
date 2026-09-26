@@ -10,12 +10,12 @@ CSV ingestion → validation → cross-layer graph → feature engineering → I
 Forest anomaly detection → Bitcoin-pattern detection → risk and confidence scoring
 → ranked investigative leads → Streamlit visualization.
 
-## Phase 4 scope
+## Phase 5 scope
 
 The deterministic synthetic data generator is implemented. The Streamlit app
 still displays only its title. Dataset ingestion and the cross-layer evidence
 graph, wallet features, and Isolation Forest are implemented. Explainable pattern
-signals, combined scoring, and the interface remain for later phases.
+signals and combined scoring are implemented; the interface remains for Phase 6.
 
 Generate the dataset and run the standard-library tests:
 
@@ -192,3 +192,50 @@ truth for an evaluation-only rank comparison. The feature/model modules never
 read that file. Tests verify unchanged scores after replacing every wallet ID
 and seed distance. The generator and model are not tuned to force a planted
 wallet into first place.
+
+## Explainable signals and ranked leads (Phase 5)
+
+```sh
+python -m tracelayer.pipeline
+# Optional: --case path/to/case.csv --output path/to/ranked_leads.csv --contamination 0.05
+```
+
+The pipeline loads/validates, builds the graph, derives wallet features, fits
+Isolation Forest, finds pattern indicators, scores, and ranks. It writes
+`data/ranked_leads.csv` and prints ten leads. CSV `reasons` contain JSON arrays.
+Invalid rows remain visible in the validation report; a wholly unusable case
+fails with that report. No production module reads ground truth.
+
+The peeling heuristic requires at least three chronological transactions (a
+configurable minimum), each with one input and two distinct outputs. One output
+must hold at least 80% of output value. Each next input exactly matches the prior
+continuation value, and that value decreases by no more than 20% per step.
+Ambiguous next steps and cycles stop extension. The longest qualifying chain
+provides the reason; its continuation wallets get a binary `peeling_signal` of
+1, others 0. This conservative demonstration rule can miss real patterns and
+flag ordinary change behavior. It is not a money-laundering conclusion.
+
+Seed support is `1 / (1 + distance / 2)` for reachable wallets, zero otherwise,
+where distance counts directed wallet/TXID edges. The seed itself scores 1.
+Network paths are excluded. Demo risk is exactly:
+
+`100 * (0.50 * anomaly_score + 0.30 * peeling_signal + 0.20 * seed_proximity_score)`
+
+The constants live in `scoring.py`; they are explanatory demo choices, not fitted
+or calibrated probabilities. All wallets remain in the ranking, including low
+priority entries. Ties are sorted by entity ID.
+
+Confidence is separate from risk and ignores suspiciousness entirely:
+40 points for both network and blockchain evidence, up to 40 points for ten
+distinct relevant TXIDs, and up to 20 points for the same IP recurring across
+four distinct relevant TXIDs. Specifically, the latter terms are
+`40 * min(transaction_count / 10, 1)` and
+`20 * min(max_same_ip_distinct_txids_minus_one / 3, 1)`.
+`evidence_count` counts distinct relevant transactions. IP/transaction association
+counts describe endpoint evidence, not independent packet captures or verified
+owners. The synthetic CSV has only one observation row per TXID. Repetition is
+therefore across transactions, not independent corroboration of one transaction.
+
+Display confidence as a score out of 100, never as probability of guilt.
+Tests check bounds, sorting, counterexamples, identity-independent pattern
+matching, confidence independence, and execution with ground-truth reads blocked.
