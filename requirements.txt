@@ -1,0 +1,6 @@
+# Python 3.11+; version pins deferred until the analysis pipeline is validated.
+pandas
+numpy
+scikit-learn
+networkx
+streamlit
