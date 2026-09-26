@@ -10,11 +10,11 @@ CSV ingestion → validation → cross-layer graph → feature engineering → I
 Forest anomaly detection → Bitcoin-pattern detection → risk and confidence scoring
 → ranked investigative leads → Streamlit visualization.
 
-## Phase 2 scope
+## Phase 3 scope
 
 The deterministic synthetic data generator is implemented. The Streamlit app
-still displays only its title. Dataset ingestion is implemented; graphs,
-detection, scoring, and ML remain unimplemented placeholders.
+still displays only its title. Dataset ingestion and the cross-layer evidence
+graph are implemented; detection, scoring, and ML remain unimplemented placeholders.
 
 Generate the dataset and run the standard-library tests:
 
@@ -110,3 +110,40 @@ Ground truth is never read by ingestion.
 ```sh
 python -c "from tracelayer.ingestion import load_case; df, report = load_case(); print(report)"
 ```
+
+## Cross-layer Evidence Graph
+
+`build_evidence_graph(df)` accepts the cleaned dataframe from `load_case` and
+returns a NetworkX `MultiDiGraph`. Node keys are `(node_type, id)` tuples, preventing
+IP, TXID, and wallet identifier collisions. Each node has `id`, `node_type`, and
+`risk_seed` attributes. Parallel edges preserve repeated addresses and separate
+source/destination endpoint observations.
+
+- `IP → TXID`: `associated_with`, with timestamp, port, source/destination role,
+  and `evidence_only=True`. This is supporting correlation, never ownership or identity.
+- `WALLET → TXID`: `input_to`, with timestamp and exact BTC amount.
+- `TXID → WALLET`: `output_to`, with timestamp and exact BTC amount.
+
+`seed_wallet_demo` is a configurable demonstration seed (`seed_wallets` argument),
+not a claim about wrongdoing. No graph function reads `ground_truth.json`.
+`graph_summary(graph)` counts total nodes/edges and wallet, TXID, and IP nodes.
+`get_entity_neighborhood(graph, entity_id, depth=2)` discovers neighbors in either
+direction but returns a copy preserving original edge directions. Pass a raw ID
+or typed tuple; absent IDs raise `KeyError`, ambiguous raw IDs raise `ValueError`.
+
+`shortest_seed_distance(graph, wallet_id)` follows **only directed blockchain
+edges** from seeded wallets. It returns edge count (one wallet-to-wallet transfer
+uses two edges), zero for a seed itself, or `None` for absent/unreachable wallets.
+IP links never shorten this distance. `blockchain_graph(graph)` exposes that
+wallet/TXID-only directed projection for inspection. These paths are structural
+transaction associations, not proof that particular coins flowed through a
+multi-input transaction; path search does not enforce chronological ordering.
+
+Inspect the planted path from the project directory:
+
+```sh
+python -m scripts.inspect_graph
+python -m unittest discover -s tests -v
+```
+
+No graph visualization or anomaly detection is implemented in this phase.
