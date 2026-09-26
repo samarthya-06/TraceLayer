@@ -1,326 +1,412 @@
 # TraceLayer
 
-Offline Bitcoin investigation proof-of-concept for Smart India Hackathon 2026.
-Requires Python 3.11 or newer.
+**Explainable Cross-Layer Bitcoin Traffic Intelligence**
 
-The planned prototype will correlate P2P/network observations (IP, port, timestamp)
-with blockchain metadata (TXID, wallet addresses, transaction amounts):
+A small, local SIH 2026 proof-of-concept built with Python and Streamlit.
+The included case, **Operation Meridian**, is entirely synthetic.
 
-CSV ingestion → validation → cross-layer graph → feature engineering → Isolation
-Forest anomaly detection → Bitcoin-pattern detection → risk and confidence scoring
-→ ranked investigative leads → Streamlit visualization.
+## Problem
 
-## Phase 6 scope
+Bitcoin investigations can involve two different evidence layers:
 
-The synthetic generator, ingestion, evidence graph, wallet features, Isolation
-Forest, explainable signals, ranking, and three-tab local interface are implemented.
+- P2P/network metadata: IP addresses, ports, and timestamps.
+- Blockchain metadata: transaction IDs, wallet addresses, and amounts.
 
-Generate the dataset and run the standard-library tests:
+Investigators need to correlate these observations, inspect transaction patterns,
+and prioritize leads for review. Correlation does not identify a real person or
+establish that an observed IP owns a wallet.
 
-```sh
-python scripts/generate_demo_data.py
-python -m unittest discover -s tests -v
+## Prototype Scope
+
+Implemented in this SIH proof-of-concept:
+
+- CSV ingestion and validation, with rejected-row reporting.
+- Cross-layer NetworkX evidence graph.
+- Wallet feature engineering and Isolation Forest anomaly detection.
+- Conservative peeling-chain heuristic and seed-risk graph proximity.
+- Separate risk and confidence/evidence scoring.
+- Explainable ranked leads and a three-tab Streamlit interface.
+- Deterministic synthetic data generation and transparent synthetic evaluation.
+
+**Future architecture, not implemented in this MVP:** DuckDB/Parquet scaling,
+Redis/Celery distributed Linux workers, advanced entity clustering, CoinJoin-aware
+clustering, SHAP-based explainability, and large-scale offline GeoIP/ASN enrichment.
+No authentication, external databases, live collection, cloud APIs, or distributed
+workers are included. Streamlit is the only application interface.
+
+## Architecture
+
+```mermaid
+flowchart TD
+    A[Synthetic CSV] --> B[Validation]
+    B --> C[Cross-Layer Graph]
+    C --> D[Feature Engineering]
+    D --> E[Isolation Forest + Graph/Pattern Signals]
+    E --> F[Risk + Confidence]
+    F --> G[Ranked Leads]
+    G --> H[Streamlit Investigation View]
+    G -. completed predictions only .-> I[Synthetic Evaluation]
+    J[Evaluation-only ground truth] --> I
 ```
 
-Optional arguments: `--rows 1000 --seed 42` (the defaults). At least 100 rows are
-required so ordinary activity remains the majority. Outputs always go to this
-project's `data/` directory, regardless of the current working directory.
+`run_pipeline()` returns cleaned data, the validation report, graph, numerical
+features/scores, pattern indicators, and ranked leads. It does not load evaluation
+labels. The UI calls this pipeline and caches its result by CSV content.
 
-The default dataset contains 963 ordinary transactions, five peeling-chain
-transactions (six chain wallets, with decreasing continuation amounts), 30 burst
-transactions in 58 seconds, and a two-transaction seed-risk path. Timestamps
-start at a fixed UTC date and cover seven days. One row represents one synthetic
-transaction and its illustrative network observation, not a real P2P capture.
+## Dataset
 
-Address and amount columns contain JSON lists. Amount list entries and fees are
-exact eight-decimal BTC strings, calculated in integer satoshis; each transaction
-balances inputs = outputs + fee. Inputs and outputs have varied counts. This is
-not a complete UTXO ledger: ordinary and burst inputs have assumed funding, and
-no cryptographic validity, real traffic distribution, or ownership is claimed.
+`data/demo_case.csv` contains 1,000 observations by default, generated with seed 42:
 
-Wallet names and TXIDs are intentionally invalid demo identifiers. IPs are drawn
-only from reserved documentation ranges `192.0.2.0/24` and `198.51.100.0/24`.
-`data/ground_truth.json` identifies scenario wallets and TXIDs for evaluation
-only. Future prediction code must not read it. Generator validation and tests
-may use it to check that the intended scenarios were actually written.
-Scenario names are transparent fixtures, not features for future detection.
-Network observations are investigative clues, not proof of wallet ownership or
-transaction origin. No performance metrics or detection claims are made.
+- 963 ordinary Bitcoin-like transactions spread across seven days.
+- Five peeling-chain transactions across six continuation wallets, with amounts
+  decreasing from 8.5 to 6.9 BTC and a smaller secondary output at each step.
+- Thirty transactions from one burst wallet in 58 seconds.
+- A two-transaction path from a supplied demonstration seed through an
+  intermediate wallet to a target wallet.
 
-This is a small local prototype, not a production system. It uses no cloud APIs,
-authentication, external databases, frontend frameworks, orchestration, or workers.
-After dependencies are installed, the app is intended to run offline using local
-files. The setup step may require internet access or a local package cache.
+No seized/private/live-intercept investigative data is included.
+Wallets and TXIDs use visibly artificial identifiers such as `bc1q_demo_0001`
+and `tx_demo_000001`. IPs use documentation ranges `192.0.2.0/24` and
+`198.51.100.0/24`. The observations are illustrative associations, not packet captures.
 
-## Dependencies
+Required columns:
 
-- `pandas`: CSV ingestion, validation, and tabular processing.
-- `numpy`: numerical calculations and safe missing-value handling.
-- `scikit-learn`: Isolation Forest anomaly detection.
-- `networkx`: cross-layer graph construction and path queries.
-- `streamlit`: three-tab local interactive interface.
-- `plotly`: local interactive evidence graph; no hosted plotting service.
+```text
+timestamp, src_ip, dst_ip, src_port, dst_port, txid,
+input_addresses, output_addresses, input_amounts, output_amounts, fee, script_type
+```
 
-Minimum API versions are specified in `requirements.txt`; Pyvis is unnecessary.
-Tested on Python 3.14.6 with pandas 3.0.6, numpy 2.5.3, scikit-learn 1.9.1,
-NetworkX 3.7, Streamlit 1.64.0, and Plotly 7.1.0. Earlier dependency versions
-are not claimed to have been tested; refitting with different versions may alter
-the exact anomaly ranking.
+Addresses and amounts use JSON arrays inside CSV cells, never pipe-separated
+strings. Amount entries are exact eight-decimal BTC strings. The generator uses
+integer satoshis; ingestion converts amounts/fees to `Decimal`, timestamps to UTC
+(naive timestamps are interpreted as UTC), and ports to integers. Each accepted
+transaction balances inputs = outputs + fee. This is not a full UTXO ledger:
+ordinary/burst transactions assume prior funding.
 
-## Run (macOS / Linux)
+`load_case(path)` returns `(cleaned_dataframe, validation_report)`. It validates
+required fields, nonempty aligned lists, IP syntax, port ranges, finite positive
+amounts, nonnegative fees, timestamps, and balance. Invalid rows carry reasons
+and one-based data-record numbers. The first valid TXID occurrence is retained;
+later valid duplicates are rejected. `duplicate_txids` counts repeated nonblank
+TXID occurrences across all input rows. `missing_required_values` counts blank
+required cells, including absent-column cells. Blank data records are reported;
+overwide CSV layouts and parser errors are explicitly rejected. Extra named
+columns are ignored. For unreadable files, row totals are unknown and remain zero.
 
-From this project directory:
+`ground_truth.json` is for evaluation and generator tests only. It never supplies
+training labels or expected scores to the pipeline.
+
+## AI/ML Approach
+
+Isolation Forest learns which numerical activity profiles are relatively easy
+to isolate in a set of randomized trees. Unsupervised detection is suitable for
+this demonstration because the pipeline does not require labeled training data.
+It finds unusual behavior; it does not classify criminal conduct.
+
+The ten model features are:
+
+| Feature | Definition |
+|---|---|
+| `transaction_count` | Distinct relevant TXIDs |
+| `total_received`, `total_sent` | Wallet output/input BTC totals |
+| `mean_transaction_amount`, `max_transaction_amount` | Mean/max gross sent + received BTC per relevant transaction |
+| `unique_counterparties` | Distinct opposite-side wallets, excluding self; not proven direct payees |
+| `incoming_degree`, `outgoing_degree` | Distinct neighboring TXID nodes by direction |
+| `transaction_frequency` | `(count - 1) × 3600 / max(active span in seconds, 60)` |
+| `mean_time_between_transactions` | Mean consecutive timestamp gap in seconds |
+
+Single-transaction wallets have frequency zero and an undefined mean gap.
+`seed_distance` is also computed for explanation/scoring, but is excluded from
+the model. Entity names, IP strings, scenario labels, and ground truth are not
+model features. Numeric missing/infinite values are median-imputed per column;
+all-missing columns become zero. Empty, singleton, and constant cases return zero
+anomaly scores rather than pretending to have learned useful distinctions.
+
+The model uses 200 trees, `random_state=42`, and configurable `contamination=0.05`.
+Contamination is a **demo parameter, not a calibrated real-world anomaly rate**.
+It sets the model's outlier decision threshold, not the risk weights.
+
+Scikit-learn `score_samples()` is **lower for anomalies**. TraceLayer negates it
+and min-max normalizes within the case:
+
+```text
+raw = -score_samples(features)
+anomaly_score = (raw - min(raw)) / (max(raw) - min(raw))
+```
+
+A constant range becomes zero. Higher scores are more anomalous; scores are not
+probabilities and are not directly comparable between independently fitted cases.
+Fitting and scoring this same small synthetic case is not held-out validation.
+
+## Graph Analysis
+
+A `MultiDiGraph` preserves parallel evidence edges. Node keys are `(node_type, id)`
+tuples; attributes include `id`, `node_type`, and `risk_seed`.
+
+- `IP → TXID`: `associated_with`, with timestamp, port, endpoint role, and
+  `evidence_only=True`.
+- `WALLET → TXID`: `input_to`, with timestamp and BTC amount.
+- `TXID → WALLET`: `output_to`, with timestamp and BTC amount.
+
+**Network observations are supporting evidence and are not treated as proof of
+wallet ownership or user identity.**
+
+The user-specified `seed_wallet_demo` is an explicit, configurable graph seed,
+not a learned detection or a hidden target label. Directed seed distance uses
+only wallet/TXID links; IP correlations cannot create shortcuts. Two graph edges
+represent one wallet-to-wallet transfer. Paths express structural associations,
+not proven coin provenance; seed path search does not enforce chronological order.
+
+The peeling indicator requires at least three chronological steps by default.
+Each step has one input, two distinct outputs, and a continuation output holding
+at least 80% of output value. Consecutive steps must match the prior continuation
+amount to the next input, decrease by at most 20%, and move to a new wallet.
+Ambiguous branches and cycles stop extension. Continuation wallets on a qualifying
+chain receive a binary signal of 1 and a chain-length explanation. Others receive
+0. These parameters are configurable. Ordinary change behavior can match; real
+patterns with multiple inputs may be missed. This is an indicator, not a finding
+of money laundering. Names play no part in the heuristic.
+
+## Risk vs Confidence
+
+**Risk = prioritization score. Confidence = supporting-evidence strength.**
+
+```text
+seed_proximity = 1 / (1 + directed_seed_distance / 2)
+                or 0 when unreachable
+risk = 100 × (0.50 × anomaly + 0.30 × peeling + 0.20 × seed_proximity)
+```
+
+Weights are commented constants in `scoring.py`, chosen for demonstration rather
+than fitted or calibrated. All wallets remain ranked; ties use entity ID.
+
+Confidence has three independent evidence terms:
+
+```text
+40 points if both blockchain and network evidence are available
++ 40 × min(distinct relevant transactions / 10, 1)
++ 20 × min(repeated same-IP transactions beyond the first / 3, 1)
+```
+
+The repetition term uses the maximum across associated IPs. Confidence ignores
+anomaly, seed, pattern, and risk values. `evidence_count` counts distinct TXIDs;
+IP/transaction associations are not independent packet captures. Repetition
+across different transactions is not verified corroboration of ownership.
+
+Confidence is **not a probability of criminality**. Display it as, for example,
+`Confidence score: 86/100`.
+
+## Explainability
+
+Each lead includes reasons based on computed values: the Isolation Forest score
+and outlier decision, qualifying peeling-chain length, seed distance when
+reachable, transaction counts, and observed IP repetition where present.
+These are signal explanations, not SHAP feature attributions or causal findings.
+Reasons are Python lists in memory and JSON arrays in `ranked_leads.csv`.
+
+The interface contains exactly three views: **Case Overview**, **Ranked Leads**,
+and **Evidence Graph / Lead Details**. It supports risk filtering, literal entity
+search, selected-lead explanations, typed graph nodes, and evidence tables.
+Large graph drawings show at most 180 nearest nodes with an explicit notice;
+the underlying analysis and tables remain complete. Parallel edges overlap in
+the drawing but remain distinct in the graph.
+
+## Running Locally
+
+Requires Python 3.11+ and a local terminal. Clone the repository using your GitHub
+access, then run commands from the repository root:
 
 ```sh
-python3 -m venv .venv
+git clone https://github.com/samarthya-06/TraceLayer.git
+cd TraceLayer
+python -m venv .venv
+```
+
+Activate on macOS/Linux:
+
+```sh
 source .venv/bin/activate
-python -m pip install -r requirements.txt
-python -m streamlit run app.py --browser.gatherUsageStats=false
 ```
 
-Use a Python 3.11+ interpreter for `python3`. Open the local URL printed by
-Streamlit. Usage statistics are disabled by the launch command above.
+Activate on Windows PowerShell:
 
-## Basic checks
-
-```sh
-python -m compileall -q app.py tracelayer scripts tests
-python -c "import pandas, numpy, sklearn, networkx, streamlit; import tracelayer.ingestion, tracelayer.graph_builder, tracelayer.features, tracelayer.anomaly, tracelayer.patterns, tracelayer.scoring, tracelayer.pipeline"
+```powershell
+.venv\Scripts\Activate.ps1
 ```
 
-Tests cover generation, ingestion, graphs, model features, scoring, the pipeline,
-and Streamlit rendering and interactions.
+Or on Windows Command Prompt:
 
-## Data Ingestion
-
-`from tracelayer.ingestion import load_case` exposes `load_case(path)`, returning
-`(cleaned_dataframe, validation_report)`. The default path is `data/demo_case.csv`.
-Addresses and amounts use **JSON arrays**, never pipe-separated strings. Addresses
-become Python string lists; amounts and fees become numeric `Decimal` values to
-preserve exact BTC arithmetic. Timestamps become UTC datetimes (naive inputs are
-interpreted as UTC), and ports become integers. Extra CSV columns are ignored.
-
-Validation checks required fields, IP syntax, port ranges, nonempty aligned lists,
-finite positive amounts, nonnegative fees, and transaction balance. Invalid rows
-are excluded with reasons and one-based data-record numbers in `row_errors`.
-`duplicate_txids` counts occurrences beyond the first nonblank TXID, even in bad
-rows. Only the first **valid** occurrence is retained. `missing_required_values`
-counts blank required cells, including cells belonging to absent columns.
-`total_rows = valid_rows + invalid_rows`; absent required columns reject all rows.
-File/parsing failures return an empty frame and `errors` (row counts are unknown
-and remain zero); malformed CSV records are not silently skipped.
-Ground truth is never read by ingestion.
-
-```sh
-python -c "from tracelayer.ingestion import load_case; df, report = load_case(); print(report)"
+```bat
+.venv\Scripts\activate.bat
 ```
 
-## Cross-layer Evidence Graph
-
-`build_evidence_graph(df)` accepts the cleaned dataframe from `load_case` and
-returns a NetworkX `MultiDiGraph`. Node keys are `(node_type, id)` tuples, preventing
-IP, TXID, and wallet identifier collisions. Each node has `id`, `node_type`, and
-`risk_seed` attributes. Parallel edges preserve repeated addresses and separate
-source/destination endpoint observations.
-
-- `IP → TXID`: `associated_with`, with timestamp, port, source/destination role,
-  and `evidence_only=True`. This is supporting correlation, never ownership or identity.
-- `WALLET → TXID`: `input_to`, with timestamp and exact BTC amount.
-- `TXID → WALLET`: `output_to`, with timestamp and exact BTC amount.
-
-`seed_wallet_demo` is a configurable demonstration seed (`seed_wallets` argument),
-not a claim about wrongdoing. No graph function reads `ground_truth.json`.
-`graph_summary(graph)` counts total nodes/edges and wallet, TXID, and IP nodes.
-`get_entity_neighborhood(graph, entity_id, depth=2)` discovers neighbors in either
-direction but returns a copy preserving original edge directions. Pass a raw ID
-or typed tuple; absent IDs raise `KeyError`, ambiguous raw IDs raise `ValueError`.
-
-`shortest_seed_distance(graph, wallet_id)` follows **only directed blockchain
-edges** from seeded wallets. It returns edge count (one wallet-to-wallet transfer
-uses two edges), zero for a seed itself, or `None` for absent/unreachable wallets.
-IP links never shorten this distance. `blockchain_graph(graph)` exposes that
-wallet/TXID-only directed projection for inspection. These paths are structural
-transaction associations, not proof that particular coins flowed through a
-multi-input transaction; path search does not enforce chronological ordering.
-
-Inspect the planted path from the project directory:
+Install and run:
 
 ```sh
-python -m scripts.inspect_graph
-python -m unittest discover -s tests -v
-```
-
-This Phase 3 inspection command remains available alongside the later model and UI.
-
-## Wallet features and anomaly detection (Phase 4)
-
-`build_wallet_features(df, graph)` derives one row per wallet. Transaction count
-counts distinct TXIDs. Sent/received totals sum that wallet's input/output BTC.
-Mean/max transaction amount use the wallet's gross sent + received amount per
-transaction (not the whole transaction total or an asserted transfer to one peer).
-Counterparties are distinct opposite-side wallets, excluding self; co-occurrence
-is not proof of a direct payment. Incoming/outgoing degree count distinct adjacent
-transaction nodes, not parallel edges.
-
-Frequency is `(transaction_count - 1) / max(active_span_seconds, 60) * 3600`.
-The one-minute floor prevents simultaneous events from causing division by zero.
-A singleton has frequency zero and undefined mean inter-transaction gap (`NaN`).
-Mean gaps use seconds. Seed distance uses directed blockchain edges and is `NaN`
-when unreachable; it is **excluded from the model**, since seed support belongs
-to the separate explainable scoring stage.
-
-`fit_anomaly_model(feature_df, contamination=0.05, random_state=42)` fits 200
-Isolation Forest trees using only the explicit ten numerical activity features.
-IDs, scenario names, and seed metadata are not model inputs. No amount threshold
-or scenario-specific rule determines anomaly scores. Non-numeric/nonfinite input
-becomes missing, median-imputed per feature (all-missing columns become zero).
-Empty, singleton, and entirely identical cases return zero scores and no outliers.
-
-Scikit-learn's `score_samples` is lower for anomalies. We negate it to obtain
-`raw_anomaly_score`, then calculate `(raw - min(raw)) / (max(raw) - min(raw))`
-within the case. Thus `anomaly_score` ranges from 0 to 1 with higher values more
-unusual; a constant range becomes zero. Scores are relative to this case, not
-probabilities, and cannot be directly compared across independently fitted cases.
-`is_anomaly` uses the model's contamination-based prediction threshold, not a
-threshold on the normalized score. The default 0.05 is a demonstration parameter,
-not a calibrated real-world anomalous-traffic rate. Fitting and scoring the same
-synthetic case demonstrates prioritization, not validated generalization.
-
-```sh
-python -m scripts.inspect_anomalies
-```
-
-This inspection script prints the top ten predictions **before** opening ground
-truth for an evaluation-only rank comparison. The feature/model modules never
-read that file. Tests verify unchanged scores after replacing every wallet ID
-and seed distance. The generator and model are not tuned to force a planted
-wallet into first place.
-
-## Explainable signals and ranked leads (Phase 5)
-
-```sh
-python -m tracelayer.pipeline
-# Optional: --case path/to/case.csv --output path/to/ranked_leads.csv --contamination 0.05
-```
-
-The pipeline loads/validates, builds the graph, derives wallet features, fits
-Isolation Forest, finds pattern indicators, scores, and ranks. It writes
-`data/ranked_leads.csv` and prints ten leads. CSV `reasons` contain JSON arrays.
-Invalid rows remain visible in the validation report; a wholly unusable case
-fails with that report. No production module reads ground truth.
-
-The peeling heuristic requires at least three chronological transactions (a
-configurable minimum), each with one input and two distinct outputs. One output
-must hold at least 80% of output value. Each next input exactly matches the prior
-continuation value, and that value decreases by no more than 20% per step.
-Ambiguous next steps and cycles stop extension. The longest qualifying chain
-provides the reason; its continuation wallets get a binary `peeling_signal` of
-1, others 0. This conservative demonstration rule can miss real patterns and
-flag ordinary change behavior. It is not a money-laundering conclusion.
-
-Seed support is `1 / (1 + distance / 2)` for reachable wallets, zero otherwise,
-where distance counts directed wallet/TXID edges. The seed itself scores 1.
-Network paths are excluded. Demo risk is exactly:
-
-`100 * (0.50 * anomaly_score + 0.30 * peeling_signal + 0.20 * seed_proximity_score)`
-
-The constants live in `scoring.py`; they are explanatory demo choices, not fitted
-or calibrated probabilities. All wallets remain in the ranking, including low
-priority entries. Ties are sorted by entity ID.
-
-Confidence is separate from risk and ignores suspiciousness entirely:
-40 points for both network and blockchain evidence, up to 40 points for ten
-distinct relevant TXIDs, and up to 20 points for the same IP recurring across
-four distinct relevant TXIDs. Specifically, the latter terms are
-`40 * min(transaction_count / 10, 1)` and
-`20 * min(max_same_ip_distinct_txids_minus_one / 3, 1)`.
-`evidence_count` counts distinct relevant transactions. IP/transaction association
-counts describe endpoint evidence, not independent packet captures or verified
-owners. The synthetic CSV has only one observation row per TXID. Repetition is
-therefore across transactions, not independent corroboration of one transaction.
-
-Display confidence as a score out of 100, never as probability of guilt.
-Tests check bounds, sorting, counterexamples, identity-independent pattern
-matching, confidence independence, and execution with ground-truth reads blocked.
-
-## Local interface (Phase 6)
-
-From a fresh clone, with Python 3.11+ installed:
-
-```sh
-python3 -m venv .venv
-source .venv/bin/activate
 python -m pip install -r requirements.txt
 python scripts/generate_demo_data.py
 python -m tracelayer.pipeline
+python scripts/evaluate_demo.py
 streamlit run app.py
 ```
 
-Dependency installation needs internet access or a preloaded package cache.
-After installation, analysis, graph rendering, and UI run locally without cloud
-APIs. `.streamlit/config.toml` disables Streamlit usage telemetry and supplies a
-simple dark theme. Open the local URL printed by Streamlit; stop with Ctrl+C.
+Use `python3` instead of `python` when needed before activating the environment.
+The generator accepts `--rows` (minimum 100) and `--seed`. The pipeline accepts
+`--case`, `--output`, and `--contamination`. After changing case parameters,
+regenerate predictions before evaluating; do not evaluate a stale ranked CSV.
+The UI computes current results in memory; the pipeline CLI saves the ranked CSV.
 
-The three tabs are **Case Overview**, **Ranked Leads**, and **Evidence Graph /
-Lead Details**. Overview includes case metrics and validation. Ranked Leads has
-a minimum-risk filter, literal entity search, selected-lead explanations, and
-separate risk/confidence scores. The graph view offers a ranked-wallet selector,
-one/two-hop neighborhoods, node inspection, transaction evidence, and IP endpoint
-associations. Color/shape distinguishes IP, TXID, and WALLET nodes, with arrows
-showing direction. Parallel evidence edges overlap visually but are retained in
-the graph. Very large drawings are capped at 180 nearest nodes with an explicit
-notice; underlying analysis and evidence tables remain complete.
+Installation needs package downloads or a prepared package cache. Once installed,
+analysis and UI work locally without cloud APIs. Usage telemetry is disabled in
+`.streamlit/config.toml`. Open the localhost URL printed by Streamlit and use
+Ctrl+C to stop. No machine-specific paths or credentials are required.
 
-The UI calls the existing pipeline and caches results by CSV contents. Editing
-or regenerating the CSV invalidates the cache. It does not retrain on every
-filter change, read ground truth, or duplicate analytics. The UI computes results
-in memory; use the pipeline CLI to update `data/ranked_leads.csv` on disk.
-
-## Demonstration result (not a performance benchmark)
-
-On the default seed-42 case, the burst wallet ranks **5th of 645** by Isolation
-Forest anomaly score (0.904306), behind four peeling-chain wallets. The model was
-not changed to force first place. Predictions were completed before evaluation
-labels were opened. The planted peeling amounts are unusual in their own right;
-this dataset cannot establish real-world model quality.
-
-Combined demo risk ranks the burst wallet 7th (45.215305/100), with evidence
-confidence 86.666667/100. The top wallet is `wallet_peel_02` (risk 80/100,
-confidence 48/100). Those different values illustrate evidence strength versus
-prioritization, not probabilities of wrongdoing. Future validation would require
-more varied ordinary/change-chain activity and independent evaluation cases;
-no such performance claim is made here.
-
-## Synthetic evaluation (Phase 7)
-
-Produce predictions first, then run the separate evaluator:
+Tests and optional inspection commands:
 
 ```sh
-python -m tracelayer.pipeline
-python scripts/evaluate_demo.py
+python -m unittest discover -s tests -v
+python -m scripts.inspect_anomalies
+python -m scripts.inspect_graph
+python -c "import streamlit; print(streamlit.__version__)"
 ```
 
-The evaluator validates the completed ranked CSV before opening ground truth.
-It saves `data/evaluation.json` with input-file SHA-256 fingerprints. Primary
-entities are defined as six continuation-chain wallets, the burst source, and
-the seed-path target (eight total); supplied seeds and incidental recipients are
-not primary targets. A broader all-participant check is reported alongside it.
-Cutoffs are `ceil(number_of_ranked_entities * percentage)`. Missing targets stay
-in the denominator and are listed; mean rank includes found targets only.
+Direct dependencies are pandas (tables/ingestion), numpy (numeric cleanup),
+scikit-learn (Isolation Forest), NetworkX (graphs), Streamlit (UI), and Plotly
+(local graph rendering). No other direct libraries are required. Tests use
+standard-library `unittest` and Streamlit's bundled testing API.
 
-**Synthetic Demo Results:** 645 ranked wallets; top-5% cutoff 33 and top-10%
-cutoff 65. Primary Recall@5% and Recall@10% are 8/8 (100%); mean rank is 6.125.
-Peeling continuation wallet ranks in chain order: 5, 1, 2, 3, 4, 6. Burst source
-rank: 7. Seed-path target rank: 21. No primary targets are missing.
-The broader 45-participant check returns 10/45 (22.22%) at both cutoffs.
-Incidental one-transaction recipients have little unusual behavior, explaining
-why participant-wide recall is much lower. More diverse baselines and independent
-cases would be legitimate improvements; copying scenario names into detection
-would not be. Neither the model nor weights were changed for these results.
+The recorded results use Python 3.14.6, pandas 3.0.6, numpy 2.5.3,
+scikit-learn 1.9.1, NetworkX 3.7, Streamlit 1.64.0, and Plotly 7.1.0.
+Requirements specify minimum APIs rather than a complete dependency lock.
+Package versions may affect exact rankings. Python 3.11 and Windows are supported
+by the project design but have not been exercised in the recorded macOS test run.
 
-The evaluation measures ranking performance on seeded synthetic scenarios. It is
-not evidence of real-world investigative accuracy. This is combined risk-ranking
-evaluation, not standalone ML accuracy; the known seed and planted graph/pattern
-structure contribute to prioritization. The evaluator cannot independently prove
-that an arbitrary supplied prediction CSV matches a ground-truth file; regenerate
-the case, pipeline output, and evaluation in order when parameters change.
+## Synthetic Evaluation
+
+**Synthetic Demo Results** — generated by `scripts/evaluate_demo.py`, saved in
+`data/evaluation.json`, and based on the combined risk ranking, not standalone
+model classification accuracy.
+
+The evaluator loads and validates completed ranked predictions **before** reading
+`ground_truth.json`. It never calls training or changes scores. Primary targets
+are six peeling continuation wallets, the burst source, and the seed-path target.
+Incidental recipients and the supplied seed are excluded from that primary set;
+a broader participant check is reported alongside it to expose that choice.
+
+| Metric | Actual result |
+|---|---:|
+| Total ranked entities | 645 |
+| Primary planted targets | 8 |
+| Top 5% cutoff (`ceil(645 × .05)`) | 33 |
+| Targets in top 5% / Recall@5% | 8/8 / 100% |
+| Top 10% cutoff (`ceil(645 × .10)`) | 65 |
+| Targets in top 10% / Recall@10% | 8/8 / 100% |
+| Mean rank of primary targets | 6.125 |
+| Missing primary targets | 0 |
+| All-participant Recall@5% | 10/45 / 22.22% |
+| All-participant Recall@10% | 10/45 / 22.22% |
+
+Individual primary ranks:
+
+| Entity | Combined risk rank |
+|---|---:|
+| wallet_peel_01 | 5 |
+| wallet_peel_02 | 1 |
+| wallet_peel_03 | 2 |
+| wallet_peel_04 | 3 |
+| wallet_peel_05 | 4 |
+| wallet_peel_06 | 6 |
+| wallet_burst_demo | 7 |
+| wallet_target | 21 |
+
+Missing targets count against recall; mean rank includes found targets only and
+missing IDs are listed. Input-file SHA-256 fingerprints identify evaluated files,
+but do not prove that an arbitrary supplied prediction file matches its labels.
+The burst wallet is 5th by anomaly alone, and 7th by combined risk. No model or
+scoring changes were made to improve these evaluation metrics.
+
+The wider participant recall is low because incidental recipient wallets mostly
+have single, unremarkable transactions. The primary targets were deliberately
+planted with conspicuous structure, and seed proximity uses a supplied seed.
+Legitimate next steps are more diverse normal/change behavior, independent cases,
+and larger public/synthetic evaluation sets—not scenario-name rules.
+
+**The evaluation measures ranking performance on seeded synthetic scenarios.
+It is not evidence of real-world investigative accuracy.**
+
+The final audit and its checks are recorded in [AUDIT.md](AUDIT.md). All 29 tests
+passed in a fresh clone with a newly installed environment; regenerated data,
+predictions, and evaluation matched the tracked artifacts byte-for-byte.
+
+## Limitations
+
+- Synthetic, small dataset and eight primary targets; neither representative nor
+  a held-out operational benchmark. No real-world accuracy claim is supported.
+- Simplified network/blockchain correlation: one synthetic observation per TXID;
+  duplicate TXIDs are rejected, so repeated real P2P observations are not modeled.
+- Heuristic peeling detection; ordinary change can match, and complex chains can
+  be missed. No UTXO provenance, CoinJoin safeguards, or real-identity inference.
+- Isolation Forest is not calibrated on operational ground truth. Scores are
+  case-relative and sensitive to feature distributions and dependency versions.
+- Risk/confidence scores are investigative prioritization aids, not probabilities.
+  Network repetition alone is not independent evidence of identity.
+- Graph paths are structural; seed distance does not enforce time ordering.
+- No forensic chain of custody, live collection, authentication, or scale testing.
+  **Not production forensic software.**
+
+## SIH Roadmap
+
+Future work could explore DuckDB/Parquet storage, offline GeoIP/ASN context,
+better Bitcoin clustering with CoinJoin-aware safeguards, larger synthetic/public
+datasets, SHAP explanations, and stronger evidence provenance. Distributed Linux
+workers using Redis/Celery are a possible later scaling architecture, not part of
+this implementation. Each extension requires separate validation and scope review.
+
+## Repository Structure
+
+```text
+TraceLayer/
+├── .gitignore
+├── .streamlit/config.toml        # Theme and disabled usage telemetry
+├── README.md
+├── AUDIT.md                     # Final technical review and reproducibility checks
+├── app.py                       # Three-tab UI, using the pipeline
+├── requirements.txt
+├── data/
+│   ├── demo_case.csv
+│   ├── ground_truth.json        # Evaluation-only labels
+│   ├── ranked_leads.csv         # Generated predictions
+│   └── evaluation.json          # Generated synthetic evaluation
+├── scripts/
+│   ├── generate_demo_data.py
+│   ├── evaluate_demo.py
+│   ├── inspect_anomalies.py
+│   └── inspect_graph.py
+├── tracelayer/
+│   ├── __init__.py
+│   ├── ingestion.py
+│   ├── graph_builder.py
+│   ├── features.py
+│   ├── anomaly.py
+│   ├── patterns.py
+│   ├── scoring.py
+│   └── pipeline.py
+└── tests/
+    ├── test_generate_demo_data.py
+    ├── test_ingestion.py
+    ├── test_graph_builder.py
+    ├── test_anomaly.py
+    ├── test_pipeline.py
+    ├── test_app.py
+    └── test_evaluation.py
+```
+
+Optional inspection scripts are retained because they provide focused,
+reproducible demonstrations. Virtual environments, caches, local secrets, and
+machine-specific files are excluded from version control.
+
+## Disclaimer
+
+TraceLayer is an investigation-support prototype.
+Flags indicate prioritization signals, not determinations of criminal activity.
+Final interpretation remains with the human investigator.

@@ -39,11 +39,15 @@ def load_case(path=DEFAULT_CASE):
                   missing_required_values=0, missing_columns=[], row_errors=[], errors=[])
     empty = pd.DataFrame(columns=REQUIRED_COLUMNS)
     try:
-        raw = pd.read_csv(path, dtype=str, keep_default_na=False)
+        raw = pd.read_csv(path, dtype=str, keep_default_na=False, skip_blank_lines=False)
     except (OSError, UnicodeError, pd.errors.ParserError, pd.errors.EmptyDataError) as error:
         report['errors'].append(str(error))
         return empty, report
     report['total_rows'] = len(raw)
+    if not isinstance(raw.index, pd.RangeIndex):
+        report['invalid_rows'] = len(raw)
+        report['errors'].append('Malformed CSV: records have more fields than the header; no rows accepted')
+        return empty, report
     missing = [name for name in REQUIRED_COLUMNS if name not in raw.columns]
     report['missing_columns'] = missing
     raw = raw.reindex(columns=REQUIRED_COLUMNS, fill_value='')

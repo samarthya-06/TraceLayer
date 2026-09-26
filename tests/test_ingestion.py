@@ -81,3 +81,33 @@ class IngestionTests(unittest.TestCase):
         df, report = load_case('/nonexistent/tracelayer-case.csv')
         self.assertTrue(df.empty)
         self.assertTrue(report['errors'])
+
+
+class CsvLayoutTests(unittest.TestCase):
+    """Prevent malformed layouts from being silently accepted or skipped."""
+
+    def test_extra_leading_field(self):
+        """Reject pandas implicit-index inference for an overwide CSV record."""
+        from io import StringIO
+        rows = generate_dataset(100)[0][:1]
+        handle = StringIO()
+        writer = csv.DictWriter(handle, fieldnames=REQUIRED_COLUMNS)
+        writer.writeheader()
+        writer.writerows(rows)
+        header, row = handle.getvalue().splitlines()
+        df, report = load_case(StringIO(header + '\nEXTRA,' + row + '\n'))
+        self.assertTrue(df.empty)
+        self.assertEqual(report['invalid_rows'], 1)
+        self.assertTrue(report['errors'])
+
+    def test_blank_record_reported(self):
+        """Count a blank data record as invalid instead of silently deleting it."""
+        from io import StringIO
+        handle = StringIO()
+        writer = csv.DictWriter(handle, fieldnames=REQUIRED_COLUMNS)
+        writer.writeheader()
+        writer.writerow(generate_dataset(100)[0][0])
+        df, report = load_case(StringIO(handle.getvalue() + '\n'))
+        self.assertEqual(report['total_rows'], 2)
+        self.assertEqual(report['invalid_rows'], 1)
+        self.assertEqual(len(df), 1)

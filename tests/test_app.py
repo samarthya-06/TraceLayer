@@ -28,3 +28,15 @@ class AppTests(unittest.TestCase):
         app.text_input[0].set_value('').run(timeout=30)
         app.slider[0].set_value(0).run(timeout=30)
         self.assertFalse(app.exception)
+
+
+    def test_offline_execution(self):
+        """Run the pipeline and app with network connections and DNS blocked."""
+        from unittest.mock import patch
+        from tracelayer.pipeline import run_pipeline
+        with patch('socket.socket.connect', side_effect=AssertionError('Unexpected network connection')), \
+             patch('socket.getaddrinfo', side_effect=AssertionError('Unexpected DNS lookup')):
+            result = run_pipeline()
+            self.assertEqual(len(result['leads']), 645)
+            app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / 'app.py')).run(timeout=60)
+            self.assertFalse(app.exception)
