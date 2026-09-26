@@ -10,11 +10,11 @@ CSV ingestion → validation → cross-layer graph → feature engineering → I
 Forest anomaly detection → Bitcoin-pattern detection → risk and confidence scoring
 → ranked investigative leads → Streamlit visualization.
 
-## Phase 1 scope
+## Phase 2 scope
 
 The deterministic synthetic data generator is implemented. The Streamlit app
-still displays only its title; ingestion, graphs, detection, scoring, and ML
-remain unimplemented placeholders.
+still displays only its title. Dataset ingestion is implemented; graphs,
+detection, scoring, and ML remain unimplemented placeholders.
 
 Generate the dataset and run the standard-library tests:
 
@@ -86,3 +86,27 @@ python -c "import pandas, numpy, sklearn, networkx, streamlit; import tracelayer
 ```
 
 Generator tests are in `tests/test_generate_demo_data.py`. Pipeline tests remain a placeholder.
+
+## Data Ingestion
+
+`from tracelayer.ingestion import load_case` exposes `load_case(path)`, returning
+`(cleaned_dataframe, validation_report)`. The default path is `data/demo_case.csv`.
+Addresses and amounts use **JSON arrays**, never pipe-separated strings. Addresses
+become Python string lists; amounts and fees become numeric `Decimal` values to
+preserve exact BTC arithmetic. Timestamps become UTC datetimes (naive inputs are
+interpreted as UTC), and ports become integers. Extra CSV columns are ignored.
+
+Validation checks required fields, IP syntax, port ranges, nonempty aligned lists,
+finite positive amounts, nonnegative fees, and transaction balance. Invalid rows
+are excluded with reasons and one-based data-record numbers in `row_errors`.
+`duplicate_txids` counts occurrences beyond the first nonblank TXID, even in bad
+rows. Only the first **valid** occurrence is retained. `missing_required_values`
+counts blank required cells, including cells belonging to absent columns.
+`total_rows = valid_rows + invalid_rows`; absent required columns reject all rows.
+File/parsing failures return an empty frame and `errors` (row counts are unknown
+and remain zero); malformed CSV records are not silently skipped.
+Ground truth is never read by ingestion.
+
+```sh
+python -c "from tracelayer.ingestion import load_case; df, report = load_case(); print(report)"
+```
