@@ -1,6 +1,7 @@
-# Python 3.11+; version pins deferred until the analysis pipeline is validated.
-pandas
-numpy
-scikit-learn
-networkx
-streamlit
+# Python 3.11+. Minimum API versions; see README for the tested environment.
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.3
+networkx>=3.0
+streamlit>=1.64
+plotly>=5.20

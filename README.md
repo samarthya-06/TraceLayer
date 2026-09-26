@@ -10,12 +10,10 @@ CSV ingestion → validation → cross-layer graph → feature engineering → I
 Forest anomaly detection → Bitcoin-pattern detection → risk and confidence scoring
 → ranked investigative leads → Streamlit visualization.
 
-## Phase 5 scope
+## Phase 6 scope
 
-The deterministic synthetic data generator is implemented. The Streamlit app
-still displays only its title. Dataset ingestion and the cross-layer evidence
-graph, wallet features, and Isolation Forest are implemented. Explainable pattern
-signals and combined scoring are implemented; the interface remains for Phase 6.
+The synthetic generator, ingestion, evidence graph, wallet features, Isolation
+Forest, explainable signals, ranking, and three-tab local interface are implemented.
 
 Generate the dataset and run the standard-library tests:
 
@@ -56,14 +54,18 @@ files. The setup step may require internet access or a local package cache.
 
 ## Dependencies
 
-- `pandas`: planned CSV ingestion, validation, and tabular processing.
-- `numpy`: planned numerical feature calculations.
-- `scikit-learn`: planned Isolation Forest anomaly detection.
-- `networkx`: planned cross-layer graph construction.
-- `streamlit`: local interactive interface; currently displays only the title.
+- `pandas`: CSV ingestion, validation, and tabular processing.
+- `numpy`: numerical calculations and safe missing-value handling.
+- `scikit-learn`: Isolation Forest anomaly detection.
+- `networkx`: cross-layer graph construction and path queries.
+- `streamlit`: three-tab local interactive interface.
+- `plotly`: local interactive evidence graph; no hosted plotting service.
 
-Version pins are deferred until the analysis pipeline is implemented and tested.
-Plotly and Pyvis are omitted because Phase 0 does not need graph visualization.
+Minimum API versions are specified in `requirements.txt`; Pyvis is unnecessary.
+Tested on Python 3.14.6 with pandas 3.0.6, numpy 2.5.3, scikit-learn 1.9.1,
+NetworkX 3.7, Streamlit 1.64.0, and Plotly 7.1.0. Earlier dependency versions
+are not claimed to have been tested; refitting with different versions may alter
+the exact anomaly ranking.
 
 ## Run (macOS / Linux)
 
@@ -86,7 +88,8 @@ python -m compileall -q app.py tracelayer scripts tests
 python -c "import pandas, numpy, sklearn, networkx, streamlit; import tracelayer.ingestion, tracelayer.graph_builder, tracelayer.features, tracelayer.anomaly, tracelayer.patterns, tracelayer.scoring, tracelayer.pipeline"
 ```
 
-Generator tests are in `tests/test_generate_demo_data.py`. Pipeline tests remain a placeholder.
+Tests cover generation, ingestion, graphs, model features, scoring, the pipeline,
+and Streamlit rendering and interactions.
 
 ## Data Ingestion
 
@@ -147,7 +150,7 @@ python -m scripts.inspect_graph
 python -m unittest discover -s tests -v
 ```
 
-No graph visualization or anomaly detection is implemented in this phase.
+This Phase 3 inspection command remains available alongside the later model and UI.
 
 ## Wallet features and anomaly detection (Phase 4)
 
@@ -239,3 +242,51 @@ therefore across transactions, not independent corroboration of one transaction.
 Display confidence as a score out of 100, never as probability of guilt.
 Tests check bounds, sorting, counterexamples, identity-independent pattern
 matching, confidence independence, and execution with ground-truth reads blocked.
+
+## Local interface (Phase 6)
+
+From a fresh clone, with Python 3.11+ installed:
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python scripts/generate_demo_data.py
+python -m tracelayer.pipeline
+streamlit run app.py
+```
+
+Dependency installation needs internet access or a preloaded package cache.
+After installation, analysis, graph rendering, and UI run locally without cloud
+APIs. `.streamlit/config.toml` disables Streamlit usage telemetry and supplies a
+simple dark theme. Open the local URL printed by Streamlit; stop with Ctrl+C.
+
+The three tabs are **Case Overview**, **Ranked Leads**, and **Evidence Graph /
+Lead Details**. Overview includes case metrics and validation. Ranked Leads has
+a minimum-risk filter, literal entity search, selected-lead explanations, and
+separate risk/confidence scores. The graph view offers a ranked-wallet selector,
+one/two-hop neighborhoods, node inspection, transaction evidence, and IP endpoint
+associations. Color/shape distinguishes IP, TXID, and WALLET nodes, with arrows
+showing direction. Parallel evidence edges overlap visually but are retained in
+the graph. Very large drawings are capped at 180 nearest nodes with an explicit
+notice; underlying analysis and evidence tables remain complete.
+
+The UI calls the existing pipeline and caches results by CSV contents. Editing
+or regenerating the CSV invalidates the cache. It does not retrain on every
+filter change, read ground truth, or duplicate analytics. The UI computes results
+in memory; use the pipeline CLI to update `data/ranked_leads.csv` on disk.
+
+## Demonstration result (not a performance benchmark)
+
+On the default seed-42 case, the burst wallet ranks **5th of 645** by Isolation
+Forest anomaly score (0.904306), behind four peeling-chain wallets. The model was
+not changed to force first place. Predictions were completed before evaluation
+labels were opened. The planted peeling amounts are unusual in their own right;
+this dataset cannot establish real-world model quality.
+
+Combined demo risk ranks the burst wallet 7th (45.215305/100), with evidence
+confidence 86.666667/100. The top wallet is `wallet_peel_02` (risk 80/100,
+confidence 48/100). Those different values illustrate evidence strength versus
+prioritization, not probabilities of wrongdoing. Future validation would require
+more varied ordinary/change-chain activity and independent evaluation cases;
+no such performance claim is made here.
